@@ -1,4 +1,6 @@
 /*
+ *  Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ *
  *  Licensed to the Apache Software Foundation (ASF) under one or more
  *  contributor license agreements.  See the NOTICE file distributed with
  *  this work for additional information regarding copyright ownership.
@@ -923,6 +925,14 @@ public class InetAddress implements Serializable {
     static InetAddress getByAddress(byte[] ipAddress, int scope_id)
             throws UnknownHostException {
         return getByAddressInternal(null, ipAddress, scope_id);
+    }
+
+    /**
+     * Clears the address cache.
+     */
+    public static void clearAddressCache()
+    {
+        addressCache.clear();
     }
 
     private static boolean isIPv4MappedAddress(byte[] ipAddress) {
