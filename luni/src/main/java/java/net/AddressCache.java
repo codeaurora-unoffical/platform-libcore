@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2011, Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,6 +126,16 @@ class AddressCache {
     public void putUnknownHost(String hostname) {
         put(hostname, NO_ADDRESSES);
     }
+
+    /**
+     * Clears the address cache
+     */
+    public void clear() {
+        synchronized (map) {
+            map.clear();
+        }
+    }
+
 
     private long customTtl(String propertyName, long defaultTtlNanos) {
         String ttlString = AccessController.doPrivileged(new PriviAction<String>(propertyName, null));
