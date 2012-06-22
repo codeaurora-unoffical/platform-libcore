@@ -568,8 +568,8 @@ public class Socket {
                         impl.bind(addr, localPort);
                     }
                 }
-                isBound = true;
                 impl.connect(dstAddress, dstPort);
+                isBound = true;
                 isConnected = true;
                 cacheLocalAddress();
             } catch (IOException e) {
@@ -835,17 +835,8 @@ public class Socket {
         checkDestination(addr, port);
         synchronized (connectLock) {
             try {
-                if (!isBound()) {
-                    // socket already created at this point by earlier call or
-                    // checkOpenAndCreate this caused us to lose socket
-                    // options on create
-                    // impl.create(true);
-                    if (!usingSocks()) {
-                        impl.bind(Inet4Address.ANY, 0);
-                    }
-                    isBound = true;
-                }
                 impl.connect(remoteAddr, timeout);
+                isBound = true;
                 isConnected = true;
                 cacheLocalAddress();
             } catch (IOException e) {
