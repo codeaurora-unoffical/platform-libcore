@@ -203,7 +203,7 @@ public class OldDateFormatTest extends junit.framework.TestCase {
     /**
      * java.text.DateFormat#parse(String)
      */
-    public void test_parseLString() throws Exception {
+    public void test_parseLString() {
         DateFormat format = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.US);
 
         try {
@@ -338,29 +338,35 @@ public class OldDateFormatTest extends junit.framework.TestCase {
         try {
             format.parse("January 31 1970 7:52:34 AM PST");
             fail("ParseException was not thrown.");
-        } catch (ParseException expected) {
+        } catch(ParseException pe) {
+            //expected
         }
 
         try {
             format.parse("January 31 1970");
             fail("ParseException was not thrown.");
-        } catch (ParseException expected) {
+        } catch(ParseException pe) {
+            //expected
         }
 
         format = DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.FULL, Locale.US);
-        String formatPattern = ((SimpleDateFormat) format).toPattern();
-        String formattedCurrent = format.format(current);
-        Date date = format.parse(formattedCurrent);
-        // Date has millisecond accuracy, but humans don't use time formats that precise.
-        if (date.getTime() / 1000 != current.getTime() / 1000) {
-            fail(date.getTime() + " != " + current.getTime() +
-                    "; " + formatPattern + "; " + formattedCurrent);
+        try {
+            Date date = format.parse(format.format(current).toString());
+            assertEquals(current.getDate(), date.getDate());
+            assertEquals(current.getDay(), date.getDay());
+            assertEquals(current.getMonth(), date.getMonth());
+            assertEquals(current.getYear(), date.getYear());
+            assertEquals(current.getHours(), date.getHours());
+            assertEquals(current.getMinutes(), date.getMinutes());
+        } catch(ParseException pe) {
+            fail("ParseException was thrown for current Date.");
         }
 
         try {
             format.parse("January 16, 1970 8:03:52 PM CET");
             fail("ParseException was not thrown.");
-        } catch (ParseException expected) {
+        } catch(ParseException pe) {
+            //expected
         }
     }
 
