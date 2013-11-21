@@ -209,6 +209,7 @@ public final class MimeUtils {
         add("application/x-xfig", "fig");
         add("application/xhtml+xml", "xhtml");
         add("audio/3gpp", "3gpp");
+        add("audio/aac-adts", "aac");
         add("audio/amr", "amr");
         add("audio/basic", "snd");
         add("audio/midi", "mid");
