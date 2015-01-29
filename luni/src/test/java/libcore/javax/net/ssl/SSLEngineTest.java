@@ -108,8 +108,7 @@ public class SSLEngineTest extends TestCase {
                  * its own, but instead in conjunction with other
                  * cipher suites.
                  */
-                if (cipherSuite.equals(StandardNames.CIPHER_SUITE_SECURE_RENEGOTIATION)
-                        || cipherSuite.equals(StandardNames.CIPHER_SUITE_FALLBACK)) {
+                if (cipherSuite.equals(StandardNames.CIPHER_SUITE_SECURE_RENEGOTIATION)) {
                     continue;
                 }
                 /*
