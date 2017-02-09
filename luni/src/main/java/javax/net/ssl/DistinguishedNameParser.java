@@ -15,6 +15,7 @@
  *  limitations under the License.
  */
 package javax.net.ssl;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -418,12 +419,14 @@ public final class DistinguishedNameParser {
         cur = 0;
         chars = dn.toCharArray();
         List<String> result = Collections.emptyList();
+
         String attType = nextAT();
         if (attType == null) {
             return result;
         }
         while (pos < length) {
             String attValue = "";
+
             switch (chars[pos]) {
             case '"':
                 attValue = quotedAV();
@@ -439,6 +442,7 @@ public final class DistinguishedNameParser {
             default:
                 attValue = escapedAV();
             }
+
             // Values are ordered from most specific to least specific
             // due to the RFC2253 formatting. So take the first match
             // we see.
@@ -448,9 +452,11 @@ public final class DistinguishedNameParser {
                 }
                 result.add(attValue);
             }
+
             if (pos >= length) {
                 break;
             }
+
             if (chars[pos] == ',' || chars[pos] == ';') {
             } else if (chars[pos] != '+') {
                 throw new IllegalStateException("Malformed DN: " + dn);
@@ -462,6 +468,7 @@ public final class DistinguishedNameParser {
                 throw new IllegalStateException("Malformed DN: " + dn);
             }
         }
+
         return result;
     }
 }
