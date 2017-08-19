@@ -33,6 +33,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -51,19 +52,19 @@
 #include <android-base/file.h>
 #include <android-base/strings.h>
 #include <log/log.h>
+#include <nativehelper/AsynchronousCloseMonitor.h>
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedBytes.h>
+#include <nativehelper/ScopedLocalRef.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+#include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/toStringArray.h>
 
-#include "AsynchronousCloseMonitor.h"
 #include "ExecStrings.h"
-#include "JNIHelp.h"
-#include "JniConstants.h"
 #include "JniException.h"
 #include "NetworkUtilities.h"
 #include "Portability.h"
-#include "ScopedBytes.h"
-#include "ScopedLocalRef.h"
-#include "ScopedPrimitiveArray.h"
-#include "ScopedUtfChars.h"
-#include "toStringArray.h"
 
 #ifndef __unused
 #define __unused __attribute__((__unused__))
@@ -423,16 +424,23 @@ static jobject makeStructPasswd(JNIEnv* env, const struct passwd& pw) {
             pw_name, static_cast<jint>(pw.pw_uid), static_cast<jint>(pw.pw_gid), pw_dir, pw_shell);
 }
 
+static jobject makeStructTimespec(JNIEnv* env, const struct timespec& ts) {
+    static jmethodID ctor = env->GetMethodID(JniConstants::structTimespecClass, "<init>",
+            "(JJ)V");
+    return env->NewObject(JniConstants::structTimespecClass, ctor,
+            static_cast<jlong>(ts.tv_sec), static_cast<jlong>(ts.tv_nsec));
+}
+
 static jobject makeStructStat(JNIEnv* env, const struct stat64& sb) {
     static jmethodID ctor = env->GetMethodID(JniConstants::structStatClass, "<init>",
-            "(JJIJIIJJJJJJJ)V");
+            "(JJIJIIJJLandroid/system/StructTimespec;Landroid/system/StructTimespec;Landroid/system/StructTimespec;JJ)V");
     return env->NewObject(JniConstants::structStatClass, ctor,
             static_cast<jlong>(sb.st_dev), static_cast<jlong>(sb.st_ino),
             static_cast<jint>(sb.st_mode), static_cast<jlong>(sb.st_nlink),
             static_cast<jint>(sb.st_uid), static_cast<jint>(sb.st_gid),
             static_cast<jlong>(sb.st_rdev), static_cast<jlong>(sb.st_size),
-            static_cast<jlong>(sb.st_atime), static_cast<jlong>(sb.st_mtime),
-            static_cast<jlong>(sb.st_ctime), static_cast<jlong>(sb.st_blksize),
+            makeStructTimespec(env, sb.st_atim), makeStructTimespec(env, sb.st_mtim),
+            makeStructTimespec(env, sb.st_ctim), static_cast<jlong>(sb.st_blksize),
             static_cast<jlong>(sb.st_blocks));
 }
 
@@ -1306,6 +1314,19 @@ static jobject Linux_getpwnam(JNIEnv* env, jobject, jstring javaName) {
 
 static jobject Linux_getpwuid(JNIEnv* env, jobject, jint uid) {
     return Passwd(env).getpwuid(uid);
+}
+
+static jobject Linux_getrlimit(JNIEnv* env, jobject, jint resource) {
+    struct rlimit r;
+    if (throwIfMinusOne(env, "getrlimit", TEMP_FAILURE_RETRY(getrlimit(resource, &r))) == -1) {
+        return nullptr;
+    }
+
+    ScopedLocalRef<jclass> rlimit_class(env, env->FindClass("android/system/StructRlimit"));
+    jmethodID ctor = env->GetMethodID(rlimit_class.get(), "<init>", "(JJ)V");
+    return env->NewObject(rlimit_class.get(), ctor,
+                          static_cast<jlong>(r.rlim_cur),
+                          static_cast<jlong>(r.rlim_max));
 }
 
 static jobject Linux_getsockname(JNIEnv* env, jobject, jobject javaFd) {
@@ -2414,6 +2435,7 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Linux, getppid, "()I"),
     NATIVE_METHOD(Linux, getpwnam, "(Ljava/lang/String;)Landroid/system/StructPasswd;"),
     NATIVE_METHOD(Linux, getpwuid, "(I)Landroid/system/StructPasswd;"),
+    NATIVE_METHOD(Linux, getrlimit, "(I)Landroid/system/StructRlimit;"),
     NATIVE_METHOD(Linux, getsockname, "(Ljava/io/FileDescriptor;)Ljava/net/SocketAddress;"),
     NATIVE_METHOD(Linux, getsockoptByte, "(Ljava/io/FileDescriptor;II)I"),
     NATIVE_METHOD(Linux, getsockoptInAddr, "(Ljava/io/FileDescriptor;II)Ljava/net/InetAddress;"),
