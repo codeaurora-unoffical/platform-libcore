@@ -30,7 +30,11 @@ import java.io.File;
  */
 @libcore.api.CorePlatformApi
 public final class ZygoteHooks {
-    private long token;
+    private static long token;
+
+    /** All methods are static, no need to instantiate. */
+    private ZygoteHooks() {
+    }
 
     /**
      * Called by the zygote when starting up. It marks the point when any thread
@@ -97,10 +101,10 @@ public final class ZygoteHooks {
      * the child process.
      */
     @libcore.api.CorePlatformApi
-    public void preFork() {
+    public static void preFork() {
         Daemons.stop();
-        waitUntilAllThreadsStopped();
         token = nativePreFork();
+        waitUntilAllThreadsStopped();
     }
 
     /**
@@ -108,7 +112,7 @@ public final class ZygoteHooks {
      * before {@code postForkChild} for system server.
      */
     @libcore.api.CorePlatformApi
-    public void postForkSystemServer() {
+    public static void postForkSystemServer() {
         nativePostForkSystemServer();
     }
 
@@ -118,7 +122,7 @@ public final class ZygoteHooks {
      * {@code instructionSet} determines whether to use a native bridge.
      */
     @libcore.api.CorePlatformApi
-    public void postForkChild(int runtimeFlags, boolean isSystemServer, boolean isZygote,
+    public static void postForkChild(int runtimeFlags, boolean isSystemServer, boolean isZygote,
             String instructionSet) {
         nativePostForkChild(token, runtimeFlags, isSystemServer, isZygote, instructionSet);
 
@@ -131,14 +135,17 @@ public final class ZygoteHooks {
      * {@code postForkChild}.
      */
     @libcore.api.CorePlatformApi
-    public void postForkCommon() {
+    public static void postForkCommon() {
         Daemons.startPostZygoteFork();
+        nativePostZygoteFork();
     }
 
-    private static native long nativePreFork();
 
     // Hook for SystemServer specific early initialization post-forking.
     private static native void nativePostForkSystemServer();
+
+    private static native long nativePreFork();
+    private static native void nativePostZygoteFork();
 
     // Hook for all child processes post forking.
     private static native void nativePostForkChild(long token, int runtimeFlags,

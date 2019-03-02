@@ -19,6 +19,7 @@ package dalvik.system;
 import dalvik.annotation.compat.UnsupportedAppUsage;
 import dalvik.annotation.optimization.FastNative;
 import java.lang.ref.FinalizerReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -55,6 +56,77 @@ public final class VMRuntime {
     }
 
     /**
+     * Interface for logging hidden API usage events.
+     */
+    @libcore.api.CorePlatformApi
+    public interface HiddenApiUsageLogger {
+
+        // The following ACCESS_METHOD_ constants must match the values in
+        // art/runtime/hidden_api.h
+        /**
+         * Internal test value that does not correspond to an actual access by the
+         * application. Never logged, added for completeness.
+         */
+        public static final int ACCESS_METHOD_NONE = 0;
+
+        /**
+         *  Used when a method has been accessed via reflection.
+         */
+        public static final int ACCESS_METHOD_REFLECTION = 1;
+
+        /**
+         *  Used when a method has been accessed via JNI.
+         */
+        public static final int ACCESS_METHOD_JNI = 2;
+
+        /**
+         * Used when a method is accessed at link time. Never logged, added only
+         * for completeness.
+         */
+        public static final int ACCESS_METHOD_LINKING = 3;
+
+        /**
+         * Logs hidden API access
+         *
+         * @param appPackageName package name of the app attempting the access
+         * @param signature signature of the method being called, i.e
+         *      class_name->member_name:type_signature (e.g.
+         *      {@code com.android.app.Activity->mDoReportFullyDrawn:Z}) for fields and
+         *      class_name->method_name_and_signature for methods (e.g
+         *      {@code com.android.app.Activity->finish(I)V})
+         * @param accessType how the accessed was done
+         * @param accessDenied whether the access was allowed or not
+         */
+        public void hiddenApiUsed(String appPackageName, String signature,
+            int accessType, boolean accessDenied);
+    }
+
+    static HiddenApiUsageLogger hiddenApiUsageLogger;
+
+    /**
+     * Sets the hidden API usage logger {@link #hiddenApiUsageLogger}.
+     * It should only be called if {@link #setHiddenApiAccessLogSamplingRate(int)}
+     * is called with a value > 0
+     */
+    @libcore.api.CorePlatformApi
+    public static void setHiddenApiUsageLogger(HiddenApiUsageLogger hiddenApiUsageLogger) {
+        VMRuntime.hiddenApiUsageLogger = hiddenApiUsageLogger;
+    }
+
+    /**
+     * Records an attempted hidden API access to
+     * {@link HiddenApiUsageLogger#hiddenApiUsed(String, String, int, boolean}
+     * if a logger is registered via {@link #setHiddenApiUsageLogger}.
+     */
+    private static void hiddenApiUsed(String appPackageName, String signature,
+         int accessType, boolean accessDenied) {
+        if (VMRuntime.hiddenApiUsageLogger != null) {
+            VMRuntime.hiddenApiUsageLogger.hiddenApiUsed(appPackageName, signature,
+                accessType, accessDenied);
+        }
+    }
+
+    /**
      * Magic version number for a current development build, which has not
      * yet turned into an official release. This number must be larger than
      * any released version in {@code android.os.Build.VERSION_CODES}.
@@ -66,6 +138,13 @@ public final class VMRuntime {
     private static Consumer<String> nonSdkApiUsageConsumer = null;
 
     private int targetSdkVersion = SDK_VERSION_CUR_DEVELOPMENT;
+
+    // notifyNativeAllocationsInternal (below) should be called every notifyNativeInterval
+    // allocations. Initialized on demand to allow completely static class initialization.
+    private int notifyNativeInterval;
+
+    // Allocations since last call to native layer. See notifyNativeAllocation().
+    private final AtomicInteger allocationCount = new AtomicInteger(0);
 
     /**
      * Prevents this class from being instantiated.
@@ -163,12 +242,14 @@ public final class VMRuntime {
     @libcore.api.CorePlatformApi
     public float setTargetHeapUtilization(float newTarget) {
         if (newTarget <= 0.0f || newTarget >= 1.0f) {
-            throw new IllegalArgumentException(newTarget +
-                    " out of range (0,1)");
+            throw new IllegalArgumentException(newTarget + " out of range (0,1)");
         }
-        /* Synchronize to make sure that only one thread gets
-         * a given "old" value if both update at the same time.
-         * Allows for reliable save-and-restore semantics.
+        /* The native code assumes a value >= 0.1. Clamp it to that. */
+        if (newTarget < 0.1f) {
+            newTarget = 0.1f;
+        }
+        /* Synchronize to make sure that only one thread gets a given "old" value if both
+         * update at the same time.  Allows for reliable save-and-restore semantics.
          */
         synchronized (this) {
             float oldTarget = getTargetHeapUtilization();
@@ -375,18 +456,69 @@ public final class VMRuntime {
      * function requests a concurrent GC. If the native bytes allocated exceeds a second higher
      * watermark, it is determined that the application is registering native allocations at an
      * unusually high rate and a GC is performed inside of the function to prevent memory usage
-     * from excessively increasing.
+     * from excessively increasing. Memory allocated via system malloc() should not be included
+     * in this count. If only malloced() memory is allocated, bytes should be zero.
+     * The argument must be the same as that later passed to registerNativeFree(), but may
+     * otherwise be approximate.
      */
     @UnsupportedAppUsage
     @libcore.api.CorePlatformApi
-    public native void registerNativeAllocation(int bytes);
+    public void registerNativeAllocation(int bytes) {
+        if (bytes == 0) {
+            notifyNativeAllocation();
+        } else {
+            registerNativeAllocationInternal(bytes);
+        }
+    }
+
+    private native void registerNativeAllocationInternal(int bytes);
 
     /**
      * Registers a native free by reducing the number of native bytes accounted for.
      */
     @UnsupportedAppUsage
     @libcore.api.CorePlatformApi
-    public native void registerNativeFree(int bytes);
+    public void registerNativeFree(int bytes) {
+        if (bytes != 0) {
+            registerNativeFreeInternal(bytes);
+        }
+    }
+
+    private native void registerNativeFreeInternal(int bytes);
+
+    /**
+     * Return the number of native objects that are reported by a single call to
+     * notifyNativeAllocation().
+     */
+    private static native int getNotifyNativeInterval();
+
+    /**
+     * Report a native malloc()-only allocation to the GC.
+     */
+    private void notifyNativeAllocation() {
+        // Minimize JNI calls by notifying once every notifyNativeInterval allocations.
+        // The native code cannot do anything without calling mallinfo(), which is too
+        // expensive to perform on every allocation. To avoid the JNI overhead on every
+        // allocation, we do the sampling here, rather than in native code.
+        // Initialize notifyNativeInterval carefully. Multiple initializations may race.
+        int myNotifyNativeInterval = notifyNativeInterval;
+        if (myNotifyNativeInterval == 0) {
+            // This can race. By Java rules, that's OK.
+            myNotifyNativeInterval = notifyNativeInterval = getNotifyNativeInterval();
+        }
+        // myNotifyNativeInterval is correct here. If another thread won the initial race,
+        // notifyNativeInterval may not be.
+        if (allocationCount.addAndGet(1) % myNotifyNativeInterval == 0) {
+            notifyNativeAllocationsInternal();
+        }
+    }
+
+    /**
+     * Report to the GC that roughly notifyNativeInterval native malloc()-based
+     * allocations have occurred since the last call to notifyNativeAllocationsInternal().
+     * Hints that we should check whether a GC is required.
+     */
+    private native void notifyNativeAllocationsInternal();
 
     /**
      * Wait for objects to be finalized.

@@ -16,6 +16,7 @@
 
 package libcore.net;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -31,11 +32,20 @@ import java.util.regex.Pattern;
  */
 @libcore.api.CorePlatformApi
 public final class MimeUtils {
+
     private static final Pattern splitPattern = Pattern.compile("\\s+");
 
-    private static final Map<String, String> mimeTypeToExtensionMap = new HashMap<String, String>();
-
-    private static final Map<String, String> extensionToMimeTypeMap = new HashMap<String, String>();
+    /**
+     * Note: These maps only contain lowercase keys/values, regarded as the
+     * {@link #canonicalize(String) canonical form}.
+     *
+     * <p>This is the case for both extensions and MIME types. The mime.types
+     * data file contains examples of mixed-case MIME types, but some applications
+     * use the lowercase version of these same types. RFC 2045 section 2 states
+     * that MIME types are case insensitive.
+     */
+    private static final Map<String, String> mimeTypeToExtensionMap = new HashMap<>();
+    private static final Map<String, String> extensionToMimeTypeMap = new HashMap<>();
 
     static {
         parseTypes("mime.types");
@@ -57,9 +67,17 @@ public final class MimeUtils {
                 }
 
                 final String[] split = splitPattern.split(line);
-                final String mimeType = split[0];
+                final String mimeType = canonicalize(split[0]);
+                if (!allowedInMap(mimeType)) {
+                    throw new IllegalArgumentException(
+                            "Invalid mimeType " + mimeType + " in: " + line);
+                }
                 for (int i = 1; i < split.length; i++) {
-                    String extension = split[i].toLowerCase(Locale.US);
+                    String extension = canonicalize(split[i]);
+                    if (!allowedInMap(extension)) {
+                        throw new IllegalArgumentException(
+                                "Invalid extension " + extension + " in: " + line);
+                    }
 
                     // Normally the first MIME type definition wins, and the
                     // last extension definition wins. However, a file can
@@ -87,6 +105,24 @@ public final class MimeUtils {
         }
     }
 
+    private MimeUtils() {
+    }
+
+    /**
+     * Returns the canonical (lowercase) form of the given extension or MIME type.
+     */
+    private static String canonicalize(String s) {
+        return s.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Checks whether the given extension or MIME type might be valid and
+     * therefore may appear in the mimeType <-> extension maps.
+     */
+    private static boolean allowedInMap(String s) {
+        return s != null && !s.isEmpty();
+    }
+
     /**
      * Returns true if the given case insensitive MIME type has an entry in the map.
      * @param mimeType A MIME type (i.e. text/plain)
@@ -104,12 +140,13 @@ public final class MimeUtils {
      * @return The MIME type has been registered for
      * the given case insensitive file extension or null if there is none.
      */
+    @UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public static String guessMimeTypeFromExtension(String extension) {
-        if (extension == null || extension.isEmpty()) {
+        if (!allowedInMap(extension)) {
             return null;
         }
-        extension = extension.toLowerCase(Locale.US);
+        extension = canonicalize(extension);
         return extensionToMimeTypeMap.get(extension);
     }
 
@@ -132,12 +169,13 @@ public final class MimeUtils {
      * @return The extension has been registered for
      * the given case insensitive MIME type or null if there is none.
      */
+    @UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public static String guessExtensionFromMimeType(String mimeType) {
-        if (mimeType == null || mimeType.isEmpty()) {
+        if (!allowedInMap(mimeType)) {
             return null;
         }
-        mimeType = mimeType.toLowerCase(Locale.US);
+        mimeType = canonicalize(mimeType);
         return mimeTypeToExtensionMap.get(mimeType);
     }
 }
