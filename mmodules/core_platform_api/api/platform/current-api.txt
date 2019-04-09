@@ -90,7 +90,6 @@ package android.system {
   public final class Os {
     method public static android.system.StructCapUserData[] capget(android.system.StructCapUserHeader) throws android.system.ErrnoException;
     method public static void capset(android.system.StructCapUserHeader, android.system.StructCapUserData[]) throws android.system.ErrnoException;
-    method @dalvik.annotation.compat.UnsupportedAppUsage public static void connect(java.io.FileDescriptor, java.net.SocketAddress) throws android.system.ErrnoException, java.net.SocketException;
     method public static int fcntlInt(java.io.FileDescriptor, int, int) throws android.system.ErrnoException;
     method public static int getpgid(int) throws android.system.ErrnoException;
     method public static android.system.StructRlimit getrlimit(int) throws android.system.ErrnoException;
@@ -504,15 +503,6 @@ package com.android.org.conscrypt {
   public interface SSLClientSessionCache {
   }
 
-  public final class ServerSessionContext implements javax.net.ssl.SSLSessionContext {
-    method public final java.util.Enumeration<byte[]> getIds();
-    method public final javax.net.ssl.SSLSession getSession(byte[]);
-    method public final int getSessionCacheSize();
-    method public final int getSessionTimeout();
-    method public final void setSessionCacheSize(int) throws java.lang.IllegalArgumentException;
-    method public final void setSessionTimeout(int) throws java.lang.IllegalArgumentException;
-  }
-
   public final class TrustManagerImpl extends javax.net.ssl.X509ExtendedTrustManager {
     ctor @dalvik.annotation.compat.UnsupportedAppUsage public TrustManagerImpl(java.security.KeyStore);
     ctor public TrustManagerImpl(java.security.KeyStore, com.android.org.conscrypt.CertPinManager, com.android.org.conscrypt.ConscryptCertStore);
@@ -756,10 +746,13 @@ package dalvik.system {
     method @dalvik.annotation.optimization.FastNative public boolean isNativeDebuggable();
     method @dalvik.annotation.compat.UnsupportedAppUsage @dalvik.annotation.optimization.FastNative public Object newNonMovableArray(Class<?>, int);
     method @dalvik.annotation.optimization.FastNative public Object newUnpaddedArray(Class<?>, int);
+    method public void notifyStartupCompleted();
     method public void preloadDexCaches();
     method public static void registerAppInfo(String, String[]);
-    method @dalvik.annotation.compat.UnsupportedAppUsage public void registerNativeAllocation(int);
-    method @dalvik.annotation.compat.UnsupportedAppUsage public void registerNativeFree(int);
+    method @dalvik.annotation.compat.UnsupportedAppUsage public void registerNativeAllocation(long);
+    method @Deprecated @dalvik.annotation.compat.UnsupportedAppUsage public void registerNativeAllocation(int);
+    method @dalvik.annotation.compat.UnsupportedAppUsage public void registerNativeFree(long);
+    method @Deprecated @dalvik.annotation.compat.UnsupportedAppUsage public void registerNativeFree(int);
     method public static void registerSensitiveThread();
     method public void requestConcurrentGC();
     method public static void setDedupeHiddenApiWarnings(boolean);
@@ -1040,7 +1033,10 @@ package libcore.io {
     ctor @dalvik.annotation.compat.UnsupportedAppUsage protected ForwardingOs(libcore.io.Os);
     method @dalvik.annotation.compat.UnsupportedAppUsage public boolean access(String, int) throws android.system.ErrnoException;
     method @dalvik.annotation.compat.UnsupportedAppUsage public java.io.FileDescriptor open(String, int, int) throws android.system.ErrnoException;
+    method @dalvik.annotation.compat.UnsupportedAppUsage public void remove(String) throws android.system.ErrnoException;
+    method @dalvik.annotation.compat.UnsupportedAppUsage public void rename(String, String) throws android.system.ErrnoException;
     method @dalvik.annotation.compat.UnsupportedAppUsage public android.system.StructStat stat(String) throws android.system.ErrnoException;
+    method @dalvik.annotation.compat.UnsupportedAppUsage public void unlink(String) throws android.system.ErrnoException;
   }
 
   public final class IoBridge {
@@ -1253,6 +1249,9 @@ package libcore.util {
   public class NativeAllocationRegistry {
     ctor public NativeAllocationRegistry(ClassLoader, long, long);
     method public static void applyFreeFunction(long, long);
+    method public static libcore.util.NativeAllocationRegistry createMalloced(ClassLoader, long, long);
+    method public static libcore.util.NativeAllocationRegistry createMalloced(ClassLoader, long);
+    method public static libcore.util.NativeAllocationRegistry createNonmalloced(ClassLoader, long, long);
     method public Runnable registerNativeAllocation(Object, long);
   }
 
