@@ -5,17 +5,6 @@ package android.system {
     method @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public java.net.SocketException rethrowAsSocketException() throws java.net.SocketException;
   }
 
-  public final class Os {
-    method @dalvik.annotation.compat.UnsupportedAppUsage @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public static void setsockoptTimeval(java.io.FileDescriptor, int, int, android.system.StructTimeval) throws android.system.ErrnoException;
-  }
-
-  @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public final class StructTimeval {
-    method @dalvik.annotation.compat.UnsupportedAppUsage @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public static android.system.StructTimeval fromMillis(long);
-    method @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public long toMillis();
-    field @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public final long tv_sec;
-    field @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public final long tv_usec;
-  }
-
 }
 
 package com.android.org.conscrypt {
@@ -472,18 +461,6 @@ package libcore.api {
   }
 
   @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.TYPE, java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.CONSTRUCTOR, java.lang.annotation.ElementType.ANNOTATION_TYPE}) @libcore.api.IntraCoreApi public @interface IntraCoreApi {
-  }
-
-}
-
-package libcore.io {
-
-  @libcore.api.IntraCoreApi public final class Libcore {
-    field @dalvik.annotation.compat.UnsupportedAppUsage @libcore.api.IntraCoreApi public static volatile libcore.io.Os os;
-  }
-
-  @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public interface Os {
-    method @dalvik.annotation.compat.UnsupportedAppUsage @libcore.api.IntraCoreApi public void setsockoptTimeval(java.io.FileDescriptor, int, int, android.system.StructTimeval) throws android.system.ErrnoException;
   }
 
 }
